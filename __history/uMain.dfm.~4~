@@ -1,0 +1,104 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  Caption = 'Car Flash Files Sorter'
+  ClientHeight = 357
+  ClientWidth = 601
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  DesignSize = (
+    601
+    357)
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Label1: TLabel
+    Left = 8
+    Top = 47
+    Width = 70
+    Height = 13
+    Caption = 'Selected Path:'
+  end
+  object Label2: TLabel
+    Left = 8
+    Top = 76
+    Width = 43
+    Height = 13
+    Caption = 'Content:'
+  end
+  object Button1: TButton
+    Left = 8
+    Top = 8
+    Width = 89
+    Height = 25
+    Caption = 'Select Path'
+    TabOrder = 0
+    OnClick = Button1Click
+  end
+  object ePath: TEdit
+    Left = 84
+    Top = 44
+    Width = 133
+    Height = 21
+    ReadOnly = True
+    TabOrder = 1
+  end
+  object Panel1: TPanel
+    Left = 8
+    Top = 95
+    Width = 585
+    Height = 218
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    BevelOuter = bvNone
+    TabOrder = 2
+    object Splitter1: TSplitter
+      Left = 289
+      Top = 0
+      Width = 6
+      Height = 218
+      ExplicitLeft = 251
+    end
+    object lvLeft: TListView
+      Left = 0
+      Top = 0
+      Width = 289
+      Height = 218
+      Align = alLeft
+      Columns = <
+        item
+          Caption = 'Folder / Files'
+          Width = 150
+        end
+        item
+          Caption = 'Date Modified'
+          Width = 100
+        end>
+      TabOrder = 0
+      ViewStyle = vsReport
+    end
+    object lvRight: TListView
+      Left = 295
+      Top = 0
+      Width = 290
+      Height = 218
+      Align = alClient
+      Columns = <
+        item
+          Caption = 'Folder / Files'
+          Width = 150
+        end
+        item
+          Caption = 'Date Modified'
+          Width = 100
+        end>
+      TabOrder = 1
+      ViewStyle = vsReport
+      ExplicitLeft = 440
+      ExplicitWidth = 257
+    end
+  end
+end

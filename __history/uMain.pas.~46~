@@ -1,0 +1,207 @@
+unit uMain;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.FileCtrl, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Vcl.ComCtrls, ShellApi, System.IOUtils;
+
+type
+  TForm1 = class(TForm)
+    Button1: TButton;
+    ePath: TEdit;
+    Label1: TLabel;
+    Panel1: TPanel;
+    lvLeft: TListView;
+    Splitter1: TSplitter;
+    lvRight: TListView;
+    Label2: TLabel;
+    Button2: TButton;
+    procedure Button1Click(Sender: TObject);
+    procedure lvLeftClick(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+  private
+    procedure FillList(Path: string; ListView: TListView; IsFile: Boolean = False);
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  Path: string;
+begin
+  SelectDirectory('Select a directory', Path, Path, []);
+  ePath.Text := Path;
+  Path := ExcludeTrailingPathDelimiter(Path);
+
+  FillList(Path, lvLeft);
+end;
+
+procedure TForm1.lvLeftClick(Sender: TObject);
+var
+  Path: string;
+begin
+  Path := ExcludeTrailingPathDelimiter(ePath.Text) + '\' + lvLeft.Selected.Caption;
+  FillList(Path, lvRight, True);
+end;
+
+function NT_SetDateTime(FileName: string; dtCreation, dtLastAccessTime, dtLastWriteTime: TDateTime): Boolean;
+// by Nicholas Robinson
+var
+  hDir: THandle;
+  ftCreation: TFiletime;
+  ftLastAccessTime: TFiletime;
+  ftLastWriteTime: TFiletime;
+
+  function DTtoFT(dt: TDateTime): TFiletime;
+  var
+    dwft: DWORD;
+    ft: TFiletime;
+  begin
+    dwft := DateTimeToFileDate(dt);
+    DosDateTimeToFileTime(LongRec(dwft).Hi, LongRec(dwft).Lo, ft);
+    LocalFileTimeToFileTime(ft, Result);
+  end;
+
+begin
+  hDir := CreateFile(PChar(FileName),
+                     GENERIC_READ or GENERIC_WRITE,
+                     0,
+                     nil,
+                     OPEN_EXISTING,
+                     FILE_FLAG_BACKUP_SEMANTICS,
+                     0);
+  if hDir <> INVALID_HANDLE_VALUE then
+  begin
+    try
+      ftCreation       := DTtoFT(dtCreation);
+      ftLastAccessTime := DTtoFT(dtLastAccessTime);
+      ftLastWriteTime  := DTtoFT(dtLastWriteTime);
+      Result := SetFileTime(hDir, @ftCreation, @ftLastAccessTime, @ftLastWriteTime);
+    finally
+      CloseHandle(hDir);
+    end;
+  end
+  else
+    Result := False;
+end;
+
+procedure RenameFolder(FolderOld, FolderNew: string);
+var
+   ShellInfo: TSHFileOpStruct;
+begin
+   ShellInfo.Wnd   := 0;
+   ShellInfo.wFunc := FO_RENAME;
+   ShellInfo.pFrom := PChar(FolderOld);
+   ShellInfo.pTo   := PChar(FolderNew);
+
+   SHFileOperation(ShellInfo);
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+var
+  i, j: Integer;
+  s: Double;
+  Pathi, Pathj,
+  Folder, FZ: string;
+  f: THandle;
+begin
+  (*s := 0;
+
+  for i := 0 to lvLeft.Items.Count - 1 do
+  begin
+    Pathi := ExcludeTrailingPathDelimiter(ePath.Text) + '\' + lvLeft.Items[i].Caption;
+    NT_SetDateTime(Pathi, Now + s, Now + s, Now + s);
+
+    lvLeft.Items[i].Selected := True;
+    lvLeftClick(nil);
+
+    for j := 0 to lvRight.Items.Count - 1 do
+    begin
+      Pathj := Pathi + '\' + lvRight.Items[j].Caption;
+//      FileSetDate(Pathj, DateTimeToFileDate(Now + s));
+      NT_SetDateTime(Pathj, Now + s, Now + s, Now + s);
+      s := s + 1 / 86400; // 1sec.
+    end;
+  end;   *)
+
+  for i := 0 to lvLeft.Items.Count - 1 do
+  begin
+    Pathi := ExcludeTrailingPathDelimiter(ePath.Text) + '\';
+    Folder := Pathi + lvLeft.Items[i].Caption;
+    FZ := '__Z__' + IntToStr(i);
+
+    RenameFolder(Folder, Pathi + FZ);
+    MkDir(Folder);
+
+    FillList(Pathi + FZ, lvRight, True);
+
+    for j := 0 to lvRight.Items.Count - 1 do
+    begin
+      TFile.Move(Pathi + FZ + '\' + lvRight.Items[j].Caption,
+        Folder + '\' + lvRight.Items[j].Caption);
+    end;
+
+    RemoveDirectory(PWideChar(Pathi + FZ));
+  end;
+end;
+
+procedure TForm1.FillList(Path: string; ListView: TListView; IsFile: Boolean = False);
+var
+  SR: TSearchRec;
+  DirList: TStrings;
+  i, fd: Integer;
+  li: TListItem;
+  d: TDateTime;
+  fType: SmallInt;
+begin
+  DirList := TStringList.Create;
+  try
+    if FindFirst(Path + '\*', faAnyFile, SR) = 0 then
+    begin
+      repeat
+        if ((SR.Attr and faAnyFile) <> 0) and
+          not ((SR.Name = '.') or (SR.Name = '..') or (SR.Name = 'System Volume Information'))
+        then
+          DirList.Add(SR.Name); //Fill the list
+      until FindNext(SR) <> 0;
+
+      FindClose(SR);
+    end;
+
+    ListView.Clear;
+
+    for i := 0 to DirList.Count - 1 do
+    begin
+      li := ListView.Items.Add;
+      li.Caption := DirList[i];
+
+      if IsFile then
+        fType := faAnyFile
+      else
+        fType := faDirectory;
+
+      FindFirst(Path + '\' + DirList[i], fType, SR);
+      fd := SR.Time;
+      d := FileDateToDateTime(fd);
+
+      li.SubItems.Add(DateTimeToStr(d));
+    end;
+  finally
+   DirList.Free;
+  end;
+
+//  ListView.SortType := stData;
+//  ListView.AlphaSort;
+end;
+
+end.
